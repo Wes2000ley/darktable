@@ -1,52 +1,63 @@
 # Nikon Z5II High Efficiency NEFs
 
-This fork decodes the Z5II's 14-bit High Efficiency and High Efficiency*
-NEFs with the bundled LibRaw. Nikon maker-note tag `0x0051` identifies HE
-as `13` and HE* as `14` (`0x0e`). This is separate from the TIFF Compression
-tag, which remains `34713`. File size varies with scene content and crop.
+Darktable decodes the Z5II's 14-bit High Efficiency and High Efficiency*
+NEFs with an in-tree codec in `src/imageio/nikon_he`. It adds no external
+dependencies and leaves every submodule URL and revision unchanged.
+The codec works with `USE_LIBRAW=ON` or `USE_LIBRAW=OFF`, including builds
+that use a system LibRaw.
 
-The bundled LibRaw is pinned to
-[`6c5f4637a73e69074119ed0c38662027bca84982`](https://github.com/pdcgomes/redlamp-libraw/commit/6c5f4637a73e69074119ed0c38662027bca84982),
-which carries LibRaw PR 826's decoder and Redlamp's fixes for stream layout,
-transfer curves, malformed input and concurrent decoding. Its source files
-retain their authorship and LibRaw's LGPL-2.1/CDDL-1.0 license choice.
-See its `REDLAMP.md` for provenance and changes from upstream.
+## Decoding and metadata
 
-NEFs are identified from their container and opened with LibRaw before
-RawSpeed. Automatic LibRaw decoding is restricted to the Z5II's HE/HE*
-maker-note values. Lossless NEFs continue through RawSpeed. Explicit
-`libraw_extensions` overrides retain their existing behavior.
+RawSpeed parses the NEF container and checks the camera's support against
+`cameras.xml`. Before its normal decompression step,
+`imageio_nikon_he.cc` checks the make/model and the Nikon RawImageInfo
+maker-note block (tag `0x0051`). Its short at byte offset 10 identifies HE
+as `13` and HE* as `14` (`0x0e`). This is separate from TIFF Compression,
+which remains `34713`.
 
-The HE path uses the Z5II matrix and sensor white level already present in
-RawSpeed's `data/cameras.xml`, as this LibRaw revision lacks the model's
-color matrix. White balance, black levels, Bayer samples and crop geometry
-come from LibRaw.
+Only Z5II HE/HE* images use the native codec. Other formats, including
+lossless NEFs, use their existing decoding paths. The adapter validates
+the 14-bit format, dimensions, strip range and codestream profile before
+decompression. The picture header supplies the exact transfer curve.
+The codec returns the full 14-bit RGGB Bayer mosaic without demosaicing.
 
-## Build
+RawSpeed then reads metadata normally, including white balance, and applies
+the existing Z5II crop, black level, white level and color matrix from
+`data/cameras.xml`. No separate camera matrix is hardcoded in the loader.
+Nikon's existing `libraw_extensions` override behavior is unchanged.
 
-Initialize submodules after cloning this fork, then follow the normal build
-instructions. Keep `USE_LIBRAW=ON` and `DONT_USE_INTERNAL_LIBRAW=OFF` (the
-defaults). A system LibRaw build only has HE support if that library provides
-the decoder. Builds with `USE_LIBRAW=OFF` retain ordinary NEF support.
+The codec was adapted from the community HE decoder and fixes at
+[Redlamp LibRaw 6c5f4637a73e69074119ed0c38662027bca84982](https://github.com/pdcgomes/redlamp-libraw/commit/6c5f4637a73e69074119ed0c38662027bca84982).
+See `src/imageio/nikon_he/README.md` for attribution, licenses and the
+changes made during integration.
 
 ## Regression checks
 
-Configure with `-DBUILD_TESTING=ON`. Download the eight Z5II HE/HE* samples
-listed in `src/external/LibRaw/redlamp/bench/samples.json`, verify their
-SHA-256 hashes, and save them as `<name>.NEF`. Set `NIKON_Z5II_SAMPLE_DIR`
-to that directory before running:
+Configure with `-DBUILD_TESTING=ON`. Download the eleven CC0 raw.pixls.us
+samples listed in `src/tests/nikon_z5ii_samples.json`, verify their SHA-256
+hashes, and save them as `<name>.NEF`. Set `NIKON_Z5II_SAMPLE_DIR` to that
+directory before running:
 
 ```sh
 cmake --build build --target darktable-test-nikon-z5ii
 ctest --test-dir build -R '^imageio_nikon_z5ii$' --output-on-failure
 ```
 
-The test checks every photosite against the pinned decoder's recorded
-golden hashes, dimensions, black/white levels and compression values. It
-also checks that truncated streams fail. Without the sample directory,
-CTest reports a skipped test.
+The test checks every photosite of eight HE/HE* files against the source
+decoder's golden hashes, plus dimensions, compression values, calibration
+and white balance availability. Hashes use unsigned 16-bit little-endian
+photosites without row padding. They establish regression consistency,
+not independent accuracy against Nikon's decoder.
 
-Exercise the application path with isolated configuration and cache
+It also rejects truncated input, damaged picture headers, empty precinct
+streams, impossible packet lengths and inconsistent dimensions. Three
+lossless NEFs exercise the unmodified RawSpeed fallback. Concurrent decodes
+with different dimensions and HE profiles check for shared mutable state.
+Without the sample directory CTest reports a skipped test. Additional local
+HE/HE* files can be checked by passing their paths to the test executable.
+
+Repeat the build and test with `-DUSE_LIBRAW=OFF` to verify independence from
+LibRaw. Exercise the application with isolated configuration and cache
 directories and an uncompressed PPM export:
 
 ```sh
@@ -55,7 +66,6 @@ darktable-cli sample.NEF sample.ppm --width 1280 --height 1280 \
   --cachedir ./test-cache --disable-opencl
 ```
 
-Include HE, HE*, full-frame, DX, square and 16:9 samples, and lossless NEFs
-to verify routing. Repeat a lossless export with `USE_LIBRAW=OFF` and
-compare the output bytes. The CLI uses an in-memory library and disables
-sidecar writing.
+Include HE, HE*, full-frame, DX, square and 16:9 samples, and lossless NEFs.
+Compare lossless exports against a build from the unchanged dependency
+baseline. The CLI uses an in-memory library and disables sidecar writing.

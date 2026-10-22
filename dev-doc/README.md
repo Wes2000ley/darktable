@@ -51,7 +51,7 @@ This guide covers building Image Operation (IOP) modules for darktable's darkroo
 ### Raw Input
 | File | Description |
 |------|-------------|
-| **[Nikon_Z5II.md](Nikon_Z5II.md)** | High Efficiency NEF decoding, dependency provenance, calibration and regression samples |
+| **[Nikon_Z5II.md](Nikon_Z5II.md)** | Native High Efficiency NEF decoding, codec provenance, calibration and regression samples |
 
 ### Sidecar Files
 | File | Description |

@@ -295,7 +295,7 @@ static gboolean is_in_glist(GList *list, const gchar *exif_model)
 
 GList *warning_missing_support_seen = NULL;
 
-/* other formats remain opt-in through libraw_extensions */
+/* LibRaw is expected to read only new Canon CR3 files */
 
 static gboolean _supported_image(const gchar *filename)
 {
@@ -385,15 +385,10 @@ dt_imageio_retval_t dt_imageio_open_libraw(dt_image_t *img,
   int err = DT_IMAGEIO_LOAD_FAILED;
   int libraw_err = LIBRAW_SUCCESS;
 
-  const gboolean configured = _supported_image(filename);
-  const char *extension = strrchr(filename, '.');
-  const gboolean nef = extension && !g_ascii_strcasecmp(extension, ".nef");
-  if(!configured && !nef)
+  if(!_supported_image(filename))
     return DT_IMAGEIO_LOAD_FAILED;
   if(!img->exif_inited)
     (void)dt_exif_read(img, filename);
-  if(!configured && strcmp(img->exif_model, "NIKON Z5_2"))
-    return DT_IMAGEIO_LOAD_FAILED;
 
   libraw_data_t *raw = libraw_init(0);
   if(!raw)
@@ -407,21 +402,6 @@ dt_imageio_retval_t dt_imageio_open_libraw(dt_image_t *img,
   libraw_err = libraw_open_file(raw, filename);
 #endif
   if(libraw_err != LIBRAW_SUCCESS)
-  {
-    // keep the RawSpeed path available when probing a lossless NEF fails
-    if(!configured)
-    {
-      libraw_close(raw);
-      return DT_IMAGEIO_LOAD_FAILED;
-    }
-    goto error;
-  }
-
-  const gboolean z5ii_he = !strcmp(raw->idata.make, "Nikon")
-    && !strcmp(raw->idata.model, "Z5_2")
-    && (raw->makernotes.nikon.NEFCompression == 13
-        || raw->makernotes.nikon.NEFCompression == 14);
-  if(!configured && !z5ii_he)
     goto error;
 
   libraw_err = libraw_unpack(raw);
@@ -475,19 +455,6 @@ dt_imageio_retval_t dt_imageio_open_libraw(dt_image_t *img,
   for(int k = 0; k < 4; k++)
     for(int i = 0; i < 3; i++)
       img->adobe_XYZ_to_CAM[k][i] = raw->rawdata.color.cam_xyz[k][i];
-
-  if(z5ii_he)
-  {
-    // use the same Z5II calibration as RawSpeed's cameras.xml for lossless NEFs
-    const float matrix[4][3] = {
-      { 1.3133f, -0.5542f, -0.1280f },
-      { -0.4325f, 1.2543f, 0.1972f },
-      { 0.0034f, 0.0792f, 0.7662f },
-      { 0.0f, 0.0f, 0.0f }
-    };
-    memcpy(img->adobe_XYZ_to_CAM, matrix, sizeof(matrix));
-    img->raw_white_point = 15892;
-  }
 
   // Raw dimensions. This is the full sensor range.
   img->width = raw->rawdata.sizes.raw_width;

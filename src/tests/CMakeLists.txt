@@ -13,9 +13,9 @@ endif(WIN32)
 
 add_subdirectory(unittests)
 
-if(USE_LIBRAW AND NOT (DONT_USE_INTERNAL_LIBRAW AND libraw_FOUND))
-    add_executable(darktable-test-nikon-z5ii nikon_z5ii.cc)
-    target_link_libraries(darktable-test-nikon-z5ii PRIVATE libraw::libraw ${Glib_LIBRARIES})
-    add_test(NAME imageio_nikon_z5ii COMMAND darktable-test-nikon-z5ii)
-    set_tests_properties(imageio_nikon_z5ii PROPERTIES SKIP_RETURN_CODE 77)
-endif()
+add_executable(darktable-test-nikon-z5ii nikon_z5ii.cc)
+target_link_libraries(darktable-test-nikon-z5ii PRIVATE darktable_nikon_he ${Glib_LIBRARIES})
+target_compile_definitions(darktable-test-nikon-z5ii PRIVATE
+  NIKON_Z5II_CAMERAS_XML="${CMAKE_SOURCE_DIR}/src/external/rawspeed/data/cameras.xml")
+add_test(NAME imageio_nikon_z5ii COMMAND darktable-test-nikon-z5ii)
+set_tests_properties(imageio_nikon_z5ii PROPERTIES SKIP_RETURN_CODE 77)

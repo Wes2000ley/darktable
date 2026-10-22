@@ -40,6 +40,7 @@
 #include "common/tags.h"
 #include "develop/imageop.h"
 #include "imageio/imageio_common.h"
+#include "imageio/imageio_nikon_he.h"
 #include "imageio/imageio_rawspeed.h"
 #include <stdint.h>
 
@@ -224,7 +225,8 @@ dt_imageio_retval_t dt_imageio_open_rawspeed(dt_image_t *img,
 
     d->failOnUnknown = true;
     d->checkSupport(meta);
-    d->decodeRaw();
+    if(!dt_imageio_decode_nikon_he(*d, storageBuf))
+      d->decodeRaw();
     d->decodeMetaData(meta);
     RawImage r = d->mRaw;
 
