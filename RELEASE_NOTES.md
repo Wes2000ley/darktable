@@ -230,9 +230,9 @@ changes (where available).
 
 ## Other Changes
 
-- Added Nikon Z5II High Efficiency and High Efficiency* NEF support with
-  the bundled LibRaw decoder, including 14-bit High Efficiency* files
-  using Nikon compression code 14.
+- Added Nikon Z5II High Efficiency and High Efficiency* NEF support,
+  including 14-bit High Efficiency* files using Nikon compression code 14.
+  Support is also available in builds without LibRaw.
 
 - AgX and sigmoid now adapt to HDR output, so one edit exports to
   SDR, HLG and PQ alike. HLG output peaks at 1000 nits, and PQ output
