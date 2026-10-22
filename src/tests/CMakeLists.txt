@@ -14,7 +14,7 @@ endif(WIN32)
 add_subdirectory(unittests)
 
 add_executable(darktable-test-nikon-z5ii nikon_z5ii.cc)
-target_link_libraries(darktable-test-nikon-z5ii PRIVATE darktable_nikon_he ${Glib_LIBRARIES})
+target_link_libraries(darktable-test-nikon-z5ii PRIVATE darktable_nikon_he Threads::Threads ${Glib_LIBRARIES})
 target_compile_definitions(darktable-test-nikon-z5ii PRIVATE
   NIKON_Z5II_CAMERAS_XML="${CMAKE_SOURCE_DIR}/src/external/rawspeed/data/cameras.xml")
 add_test(NAME imageio_nikon_z5ii COMMAND darktable-test-nikon-z5ii)
